@@ -66,7 +66,7 @@ test_nonpositive = '\n'.join(test_nonpositive_list)
 real_values = [1 if tweet[0] == 4 else 0 for tweet in test_data]  # for testing
 
 # %%
-features = word_tokenize(test_positive + " " + test_nonpositive)
+features = word_tokenize(train_positive + " " + train_nonpositive)
 features = list(set(features))
 
 # %%
