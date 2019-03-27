@@ -24,6 +24,9 @@ data = pd.read_csv(
 data.info()
 # data['make']
 
+# %% [markdown]
+# ## Intro
+# I use dataset of car details for which I want to predict the price of a car.
 
 # %%
 
@@ -59,28 +62,32 @@ class MyRidge(BaseEstimator):
         self.lmbda = lmbda
         self.verbose = verbose
 
-    def _compute_cost(self, X, y, w, lmbda):
-        """Compute the value of cost function, J.
-        Here J is total Least Square Error
-        """
+    def _sums(self, X, y, y_predicted):
+        ss_tot = 0
+        ss_reg = 0
+        ss_res = 0
+        y_avg = sum(y)/len(y)
+        for i in range(len(y)):
+            y_i = y[i]
+            f_i = y_predicted[i]
+            ss_tot += (y_i - y_avg)**2
+            ss_reg += (f_i - y_avg)**2
+            ss_res += (y_i - f_i)**2
+        return ss_tot, ss_reg, ss_res
+
+    def _calc_cost(self, X, y, w, lmbda):
         m = X.shape[0]
         J = (1. / (2. * m)) * \
             (np.sum((np.dot(X, w) - y) ** 2.) + lmbda * np.dot(w.T, w))
 
         return J
 
-    def _gradient_descent(self, X, y, w, iter_count, alpha, lmbda):
-        """Performs Graddient Descent.
-        The threshold is set by iter_count, instead of some value in this implementation
-        """
+    def _calc_gradient_descent(self, X, y, w, iter_count, alpha, lmbda):
         m = X.shape[0]
-        # Keep a history of Costs (for visualisation)
         b = np.zeros((iter_count, 1))
 
-        # perform gradient descent
         for i in range(iter_count):
-            #             print('GD: w: {0}'.format(w.shape))
-            b[i] = self._compute_cost(X, y, w, lmbda)
+            b[i] = self._calc_cost(X, y, w, lmbda)
 
             w = w - (alpha / m) * \
                 (np.dot(X.T, (X.dot(w) - y[:, np.newaxis])) + lmbda * w)
@@ -91,10 +98,8 @@ class MyRidge(BaseEstimator):
         Xn = np.ndarray.copy(X).astype('float64')
         yn = np.ndarray.copy(y).astype('float64')
 
-        # initialise w params for linear model, from w0 to w_num_features
         w = np.zeros((Xn.shape[1] + 1, 1))
 
-        # normalise the X
         self.X_mean = np.mean(Xn, axis=0)
         self.X_std = np.std(Xn, axis=0)
         Xn -= self.X_mean
@@ -104,10 +109,9 @@ class MyRidge(BaseEstimator):
         self.y_mean = yn.mean(axis=0)
         yn -= self.y_mean
 
-        # add ones for intercept term
         Xn = np.hstack((np.ones(Xn.shape[0])[np.newaxis].T, Xn))
 
-        self.w, self.b = self._gradient_descent(
+        self.w, self.b = self._calc_gradient_descent(
             Xn, yn, w, self.iter_count, self.alpha, self.lmbda)
 
     def predict(self, X):
@@ -121,19 +125,6 @@ class MyRidge(BaseEstimator):
         predicted = [elem for sublist in predicted for elem in sublist]
 
         return predicted
-
-    def _sums(self, X, y, y_predicted):
-        ss_tot = 0
-        ss_reg = 0
-        ss_res = 0
-        y_avg = sum(y)/len(y)
-        for i in range(len(y)):
-            y_i = y[i]
-            f_i = y_predicted[i]
-            ss_tot += (y_i - y_avg)**2
-            ss_reg += (f_i - y_avg)**2
-            ss_res += (y_i - f_i)**2
-        return ss_tot, ss_reg, ss_res
 
     def r_square(self, y, y_predicted):
         ss_tot, ss_reg, ss_res = self._sums(_, y, y_predicted)
@@ -334,4 +325,10 @@ plt.legend()
 plt.show()
 
 
-# %%
+# %% [markdown]
+# ## Summary
+# 
+# The results of MyRidge are not terrible, but definitely not satisfying. Event for the best parameters R^2 and CV scores were much worse than those of sklearn's Simple Linear Regression and Ridge Regression. Generally matching the techniques, I believe that the achieved results is good enough to 'trust' it.
+
+
+#%%
