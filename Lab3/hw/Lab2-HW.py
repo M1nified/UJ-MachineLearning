@@ -9,7 +9,8 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import Lasso, LinearRegression, Ridge, SGDClassifier
 from sklearn.metrics import precision_score, r2_score
-from sklearn.model_selection import cross_validate, train_test_split
+from sklearn.model_selection import (cross_val_score, cross_validate,
+                                     train_test_split)
 from statsmodels.regression.linear_model import OLS
 
 # http://archive.ics.uci.edu/ml/datasets/Wine+Quality
@@ -17,7 +18,9 @@ np.random.seed(42)
 
 # %%
 data = pd.read_csv(
-    'http://cs.if.uj.edu.pl/piotrek/ML2019/datasets/dataset_2.txt')
+    # 'http://cs.if.uj.edu.pl/piotrek/ML2019/datasets/dataset_2.txt')
+    'D:\JupyterNotebook\MachineLearning\Lab3\dataset_2.txt')
+
 data.info()
 # data['make']
 
@@ -31,6 +34,9 @@ X = X[['horsepower', 'wheel-base', 'width', 'height', 'curb-weight',
 
 x_train, x_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=2000)
+
+X = X.values
+y = y.values
 
 x_train = x_train.values
 x_test = x_test.values
@@ -134,33 +140,111 @@ class MyRidge(BaseEstimator):
         r = 1 - (ss_res/ss_tot)
         return r
 
-    def score(self, y, y_predicted):
-        return precision_score(y, y_predicted)
-        # err = 0
-        # for i in range(len(y)):
-        #     x_i = X[i]
-        #     y_i = y[i]
-        #     print(x_i, y_i)
-        #     err += (y_i-(self.w * x_i + self.b))**2
-        # return err
+    def score(self, X, y, sample_weight=None):
+        # https://stackoverflow.com/questions/24458163/what-are-the-parameters-for-sklearns-score-function
+        y_predicted = self.predict(X)
+        correct_count = 0
+        for i in range(len(y)):
+            y_i = y[i]
+            yp_i = y_predicted[i]
+            if abs(y_i - yp_i) / y_i < 0.15:  # ok if less than 15% error
+                correct_count += 1
+        return correct_count / len(y)
 
 
 # %%
-my_ridge = MyRidge()
+my_ridge = MyRidge(alpha=0.1, lmbda=120)
 my_ridge.fit(x_train, y_train)
 my_ridge_predictions = my_ridge.predict(x_test)
-my_ridge_predictions
+# my_ridge_predictions
 
 my_ridge_r_square = my_ridge.r_square(y_test, my_ridge_predictions)
-print(my_ridge_r_square)
+print('R^2:', my_ridge_r_square)
 my_ridge_r_square_sklearn = r2_score(y_test, my_ridge_predictions)
-print(my_ridge_r_square_sklearn)
+print('R^2:', my_ridge_r_square_sklearn)
 
-# my_ridge_cross_validation = cross_validate(MyRidge(), x_test, y_test)
-# print(my_ridge_cross_validation)
+my_ridge_score = my_ridge.score(x_train, y_train)
+print('Score:', my_ridge_score)
+
+my_ridge_cross_validation = cross_validate(my_ridge, x_test, y_test)
+print('Cross validation:', my_ridge_cross_validation)
+
+my_ridge_cross_validation_score = cross_val_score(my_ridge, x_test, y_test)
+print('Cross validation score:', my_ridge_cross_validation_score)
+
+
+# %% [markdown]
+# ### Test different alphas
+# %%
+alphas = np.arange(0, 0.1, 0.001)
+# alphas = np.linspace(0.0, 0.1, num=100)
+
+
+def test_alpha(alpha):
+    my_ridge = MyRidge(alpha=alpha, lmbda=200)
+
+    my_ridge.fit(x_train, y_train)
+    my_ridge_predictions = my_ridge.predict(x_test)
+
+    my_ridge_r_square = my_ridge.r_square(y_test, my_ridge_predictions)
+
+    score = my_ridge.score(x_train, y_train)
+
+    return my_ridge_r_square, score
+
+
+r2s = []
+scores = []
+
+for alpha in alphas:
+    r2, score = test_alpha(alpha)
+    r2s.append(r2)
+    scores.append(score)
+
+fig, ax = plt.subplots(1, 1, figsize=(22, 10))
+ax.semilogx(alphas, (r2s), c='b', label='R^2')
+ax.semilogx(alphas, (scores), c='r', label='Score')
+ax.set_xlabel('alpha')
+ax.legend(loc='best')
+plt.grid()
+
+# %% [markdown]
+# ### Test different lambdas
+# %%
+lambdas = range(0, 200, 10)
+
+
+def test_lambda(lmbda):
+    my_ridge = MyRidge(alpha=0.1, lmbda=lmbda)
+
+    my_ridge.fit(x_train, y_train)
+    my_ridge_predictions = my_ridge.predict(x_test)
+
+    my_ridge_r_square = my_ridge.r_square(y_test, my_ridge_predictions)
+
+    score = my_ridge.score(x_train, y_train)
+
+    return my_ridge_r_square, score
+
+
+r2s = []
+scores = []
+
+for lmbda in lambdas:
+    r2, score = test_lambda(lmbda)
+    r2s.append(r2)
+    scores.append(score)
+
+fig, ax = plt.subplots(1, 1, figsize=(22, 10))
+ax.semilogx(lambdas, (r2s), c='b', label='R^2')
+ax.semilogx(lambdas, (scores), c='r', label='Score')
+ax.set_xlabel('$\lambda$')
+ax.legend(loc='best')
+plt.grid()
 
 # %% [markdown]
 # ## Sklearn Simple Linear Regression
+
 
 # %%
 sklearn_linear_regression = LinearRegression()
@@ -168,6 +252,22 @@ sklearn_linear_regression.fit(x_train, y_train)
 sklearn_linear_regression_predictions = sklearn_linear_regression.predict(
     x_test)
 sklearn_linear_regression_predictions
+
+sklearn_linear_regression_r_square_sklearn = r2_score(
+    y_test, sklearn_linear_regression_predictions)
+print('R^2:', sklearn_linear_regression_r_square_sklearn)
+
+sklearn_linear_regression_score = sklearn_linear_regression.score(
+    x_train, y_train)
+print('Score:', sklearn_linear_regression_score)
+
+sklearn_linear_regression_cross_validation = cross_validate(
+    sklearn_linear_regression, x_test, y_test)
+print('Cross validation:', sklearn_linear_regression_cross_validation)
+
+sklearn_linear_regression_cross_validation_score = cross_val_score(
+    sklearn_linear_regression, x_test, y_test)
+print('Cross validation score:', sklearn_linear_regression_cross_validation_score)
 
 # %% [markdown]
 # ## Sklearn Ridge Regression using Stochastic Average Gradient
@@ -178,9 +278,23 @@ sklearn_ridge.fit(x_train, y_train)
 sklearn_ridge_predictions = sklearn_ridge.predict(x_test)
 sklearn_ridge_predictions
 
+sklearn_ridge_r_square_sklearn = r2_score(y_test, sklearn_ridge_predictions)
+print('R^2:', sklearn_ridge_r_square_sklearn)
+
+sklearn_ridge_score = sklearn_ridge.score(x_train, y_train)
+print('Score:', sklearn_ridge_score)
+
+sklearn_ridge_cross_validation = cross_validate(sklearn_ridge, x_test, y_test)
+print('Cross validation:', sklearn_ridge_cross_validation)
+
+sklearn_ridge_cross_validation_score = cross_val_score(
+    sklearn_ridge, x_test, y_test)
+print('Cross validation score:', sklearn_ridge_cross_validation_score)
+
 # %% [markdown]
 # ## All in one
 # %%
+plt.figure(figsize=(22, 10))
 plt.scatter(y_test, my_ridge_predictions,
             color='g', alpha=0.8, label='MyRidge')
 plt.scatter(y_test, sklearn_linear_regression_predictions,
@@ -191,9 +305,11 @@ plt.plot([0, 40000], [0, 40000], 'y-', lw=2)
 
 plt.legend()
 plt.show()
+
 # %% [markdown]
 # ## MyRidge vs Sklearn's LinearRegression
 # %%
+plt.figure(figsize=(22, 10))
 plt.scatter(y_test, my_ridge_predictions,
             color='g', alpha=0.8, label='MyRidge')
 plt.scatter(y_test, sklearn_linear_regression_predictions,
@@ -202,9 +318,12 @@ plt.plot([0, 40000], [0, 40000], 'y-', lw=2)
 
 plt.legend()
 plt.show()
+
+
 # %% [markdown]
 # ## MyRidge vs Sklearn's Ridge using Stochastic Average Gradient
 # %%
+plt.figure(figsize=(22, 10))
 plt.scatter(y_test, my_ridge_predictions,
             color='g', alpha=0.8, label='MyRidge')
 plt.scatter(y_test, sklearn_ridge_predictions, color='b',
