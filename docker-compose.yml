@@ -1,0 +1,8 @@
+version: '3.7'
+services:
+    jupyter:
+        image: 'kprzystalski/patternrecognition'
+        ports:
+            - 8888:8888
+        volumes:
+            - .:/home/patternrecognition/book
